@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,7 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,15 +29,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.narcy.notesai.Section
+import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.Note
 import com.narcy.notesai.ui.theme.noteColor
 import com.narcy.notesai.ui.theme.noteTextColor
@@ -44,18 +49,28 @@ import com.narcy.notesai.ui.theme.noteTextColor
 @Composable
 fun HomeScreen(
     notes: List<Note>,
+    labels: List<Label>,
     query: String,
+    section: Section,
+    searchHint: String,
+    gridMode: Boolean,
     onQueryChange: (String) -> Unit,
+    onMenu: () -> Unit,
     onOpen: (Note) -> Unit,
-    onNew: () -> Unit
+    onNew: () -> Unit,
+    onEmptyTrash: () -> Unit
 ) {
+    val labelNames = remember(labels) { labels.associate { it.id to it.name } }
+
     Scaffold(
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNew,
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("Nueva nota") }
-            )
+            if (section is Section.Notes || section is Section.Label) {
+                ExtendedFloatingActionButton(
+                    onClick = onNew,
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text("Nueva nota") }
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -63,12 +78,22 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            SearchBar(query, onQueryChange)
+            SearchBar(query, searchHint, onMenu, onQueryChange)
 
             if (notes.isEmpty()) {
+                val emptyText = if (query.isNotBlank()) {
+                    "Sin resultados"
+                } else {
+                    when (section) {
+                        Section.Notes -> "Aún no tienes notas"
+                        Section.Archive -> "Tus notas archivadas aparecen aquí"
+                        Section.Trash -> "La papelera está vacía"
+                        is Section.Label -> "No hay notas con esta etiqueta"
+                    }
+                }
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (query.isBlank()) "Aún no tienes notas" else "Sin resultados",
+                        text = emptyText,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -78,21 +103,43 @@ fun HomeScreen(
                 val others = notes.filter { !it.pinned }
 
                 LazyVerticalStaggeredGrid(
-                    columns = StaggeredGridCells.Fixed(2),
+                    columns = StaggeredGridCells.Fixed(if (gridMode) 2 else 1),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 96.dp),
                     verticalItemSpacing = 8.dp,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (section is Section.Trash) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Las notas se eliminan definitivamente después de 7 días.",
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                TextButton(onClick = onEmptyTrash) { Text("Vaciar") }
+                            }
+                        }
+                    }
                     if (pinned.isNotEmpty()) {
                         item(span = StaggeredGridItemSpan.FullLine) { SectionHeader("Fijadas") }
-                        items(pinned, key = { it.id }) { NoteCard(it) { onOpen(it) } }
+                        items(pinned, key = { it.id }) {
+                            NoteCard(it, labelNames[it.labelId]) { onOpen(it) }
+                        }
                     }
                     if (others.isNotEmpty()) {
                         if (pinned.isNotEmpty()) {
                             item(span = StaggeredGridItemSpan.FullLine) { SectionHeader("Otras") }
                         }
-                        items(others, key = { it.id }) { NoteCard(it) { onOpen(it) } }
+                        items(others, key = { it.id }) {
+                            NoteCard(it, labelNames[it.labelId]) { onOpen(it) }
+                        }
                     }
                 }
             }
@@ -101,7 +148,12 @@ fun HomeScreen(
 }
 
 @Composable
-private fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
+private fun SearchBar(
+    query: String,
+    hint: String,
+    onMenu: () -> Unit,
+    onQueryChange: (String) -> Unit
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -113,8 +165,12 @@ private fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
             value = query,
             onValueChange = onQueryChange,
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Buscar en tus notas") },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            placeholder = { Text(hint) },
+            leadingIcon = {
+                IconButton(onClick = onMenu) {
+                    Icon(Icons.Filled.Menu, contentDescription = "Menú")
+                }
+            },
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { onQueryChange("") }) {
@@ -144,7 +200,7 @@ private fun SectionHeader(text: String) {
 }
 
 @Composable
-private fun NoteCard(note: Note, onClick: () -> Unit) {
+private fun NoteCard(note: Note, labelName: String?, onClick: () -> Unit) {
     val textColor = noteTextColor()
     Card(
         onClick = onClick,
@@ -180,6 +236,22 @@ private fun NoteCard(note: Note, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = if (note.title.isNotBlank()) 6.dp else 0.dp)
                 )
+            }
+            if (labelName != null) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = textColor.copy(alpha = 0.1f),
+                    modifier = Modifier.padding(top = 10.dp)
+                ) {
+                    Text(
+                        text = labelName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = textColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
             }
         }
     }

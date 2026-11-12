@@ -1,5 +1,6 @@
 package com.narcy.notesai.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -10,5 +11,8 @@ data class Note(
     val content: String = "",
     val colorIndex: Int = 0,
     val pinned: Boolean = false,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "0") val archived: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val trashed: Boolean = false,
+    val labelId: Long? = null
 )

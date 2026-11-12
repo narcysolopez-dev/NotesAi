@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,16 +17,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Label as LabelIcon
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.RestoreFromTrash
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.Note
 import com.narcy.notesai.ui.theme.noteColor
 import com.narcy.notesai.ui.theme.noteColorCount
@@ -57,17 +65,34 @@ import com.narcy.notesai.ui.theme.noteTextColor
 @Composable
 fun EditorScreen(
     initial: Note,
+    labels: List<Label>,
     onSave: (Note) -> Unit,
-    onDelete: (Note) -> Unit,
+    onTrash: (Note) -> Unit,
+    onRestore: (Note) -> Unit,
+    onDeleteForever: (Note) -> Unit,
     onClose: () -> Unit
 ) {
     var title by remember { mutableStateOf(initial.title) }
     var content by remember { mutableStateOf(initial.content) }
     var colorIndex by remember { mutableIntStateOf(initial.colorIndex) }
     var pinned by remember { mutableStateOf(initial.pinned) }
+    var archived by remember { mutableStateOf(initial.archived) }
+    var labelId by remember { mutableStateOf(initial.labelId) }
+    var labelMenu by remember { mutableStateOf(false) }
+
+    val readOnly = initial.trashed
+
+    fun current(): Note = initial.copy(
+        title = title,
+        content = content,
+        colorIndex = colorIndex,
+        pinned = pinned,
+        archived = archived,
+        labelId = labelId
+    )
 
     fun saveAndClose() {
-        onSave(initial.copy(title = title, content = content, colorIndex = colorIndex, pinned = pinned))
+        if (!readOnly) onSave(current())
         onClose()
     }
 
@@ -98,30 +123,86 @@ fun EditorScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { pinned = !pinned }) {
-                        Icon(
-                            if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = "Fijar",
-                            tint = textColor
-                        )
-                    }
-                    IconButton(onClick = {
-                        onDelete(initial)
-                        onClose()
-                    }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = textColor)
+                    if (readOnly) {
+                        IconButton(onClick = {
+                            onRestore(initial)
+                            onClose()
+                        }) {
+                            Icon(Icons.Filled.RestoreFromTrash, contentDescription = "Restaurar", tint = textColor)
+                        }
+                        IconButton(onClick = {
+                            onDeleteForever(initial)
+                            onClose()
+                        }) {
+                            Icon(Icons.Filled.DeleteForever, contentDescription = "Eliminar definitivamente", tint = textColor)
+                        }
+                    } else {
+                        IconButton(onClick = {
+                            pinned = !pinned
+                            if (pinned) archived = false
+                        }) {
+                            Icon(
+                                if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                contentDescription = "Fijar",
+                                tint = textColor
+                            )
+                        }
+                        IconButton(onClick = {
+                            val nowArchived = !archived
+                            onSave(current().copy(archived = nowArchived, pinned = if (nowArchived) false else pinned))
+                            onClose()
+                        }) {
+                            Icon(
+                                if (archived) Icons.Filled.Unarchive else Icons.Filled.Archive,
+                                contentDescription = if (archived) "Desarchivar" else "Archivar",
+                                tint = textColor
+                            )
+                        }
+                        Box {
+                            IconButton(onClick = { labelMenu = true }) {
+                                Icon(Icons.AutoMirrored.Outlined.LabelIcon, contentDescription = "Etiqueta", tint = textColor)
+                            }
+                            DropdownMenu(expanded = labelMenu, onDismissRequest = { labelMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Sin etiqueta") },
+                                    leadingIcon = { if (labelId == null) Icon(Icons.Filled.Check, contentDescription = null) },
+                                    onClick = {
+                                        labelId = null
+                                        labelMenu = false
+                                    }
+                                )
+                                labels.forEach { label ->
+                                    DropdownMenuItem(
+                                        text = { Text(label.name) },
+                                        leadingIcon = { if (labelId == label.id) Icon(Icons.Filled.Check, contentDescription = null) },
+                                        onClick = {
+                                            labelId = label.id
+                                            labelMenu = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        IconButton(onClick = {
+                            onTrash(current())
+                            onClose()
+                        }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Enviar a la papelera", tint = textColor)
+                        }
                     }
                 }
             )
         },
         bottomBar = {
-            ColorPicker(
-                selected = colorIndex,
-                onSelect = { colorIndex = it },
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .imePadding()
-            )
+            if (!readOnly) {
+                ColorPicker(
+                    selected = colorIndex,
+                    onSelect = { colorIndex = it },
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .imePadding()
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -133,6 +214,7 @@ fun EditorScreen(
             TextField(
                 value = title,
                 onValueChange = { title = it },
+                readOnly = readOnly,
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Título", style = MaterialTheme.typography.titleLarge) },
                 textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
@@ -141,9 +223,10 @@ fun EditorScreen(
             TextField(
                 value = content,
                 onValueChange = { content = it },
+                readOnly = readOnly,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weightedMinHeight(),
+                    .padding(bottom = 24.dp),
                 placeholder = { Text("Escribe una nota") },
                 textStyle = MaterialTheme.typography.bodyLarge,
                 colors = fieldColors
@@ -151,9 +234,6 @@ fun EditorScreen(
         }
     }
 }
-
-private fun Modifier.weightedMinHeight(): Modifier =
-    this.then(Modifier.padding(bottom = 24.dp))
 
 @Composable
 private fun ColorPicker(

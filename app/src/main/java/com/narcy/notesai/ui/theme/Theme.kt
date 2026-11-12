@@ -1,27 +1,35 @@
 package com.narcy.notesai.ui.theme
 
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+val LocalDarkTheme = compositionLocalOf { false }
+
 @Composable
-fun NotesAiTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+fun NotesAiTheme(
+    darkTheme: Boolean,
+    dynamicColor: Boolean,
+    content: @Composable () -> Unit
+) {
     val context = LocalContext.current
     val scheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> darkColorScheme()
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        darkTheme -> darkColorScheme()
         else -> lightColorScheme()
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    CompositionLocalProvider(LocalDarkTheme provides darkTheme) {
+        MaterialTheme(colorScheme = scheme, content = content)
+    }
 }
 
 private val lightNoteColors = listOf(
@@ -40,10 +48,10 @@ val noteColorCount: Int get() = lightNoteColors.size
 
 @Composable
 fun noteColor(index: Int): Color {
-    val colors = if (isSystemInDarkTheme()) darkNoteColors else lightNoteColors
+    val colors = if (LocalDarkTheme.current) darkNoteColors else lightNoteColors
     return colors[index.coerceIn(0, colors.lastIndex)]
 }
 
 @Composable
 fun noteTextColor(): Color =
-    if (isSystemInDarkTheme()) Color(0xFFE8EAED) else Color(0xFF202124)
+    if (LocalDarkTheme.current) Color(0xFFE8EAED) else Color(0xFF202124)

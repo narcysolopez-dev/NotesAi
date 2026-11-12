@@ -17,4 +17,22 @@ interface NoteDao {
 
     @Delete
     suspend fun delete(note: Note)
+
+    @Query("DELETE FROM notes WHERE trashed = 1")
+    suspend fun emptyTrash()
+
+    @Query("DELETE FROM notes WHERE trashed = 1 AND updatedAt < :before")
+    suspend fun purgeTrashedBefore(before: Long)
+
+    @Query("SELECT * FROM labels ORDER BY name COLLATE NOCASE")
+    fun observeLabels(): Flow<List<Label>>
+
+    @Insert
+    suspend fun insertLabel(label: Label): Long
+
+    @Delete
+    suspend fun deleteLabel(label: Label)
+
+    @Query("UPDATE notes SET labelId = NULL WHERE labelId = :labelId")
+    suspend fun clearLabel(labelId: Long)
 }
