@@ -9,7 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.automirrored.outlined.Label as LabelIcon
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Archive
@@ -246,7 +246,7 @@ private fun DrawerHome(
                         closeDrawer()
                         onSettings()
                     }
-                    DrawerItem("Ayuda y comentarios", Icons.AutoMirrored.Outlined.HelpOutline, false) {
+                    DrawerItem("Ayuda y comentarios", Icons.Outlined.Info, false) {
                         closeDrawer()
                         onHelp()
                     }

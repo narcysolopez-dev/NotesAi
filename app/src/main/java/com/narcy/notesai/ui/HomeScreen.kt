@@ -145,7 +145,7 @@ fun HomeScreen(
                         items(pinned, key = { it.id }) { note ->
                             NoteCard(
                                 note = note,
-                                labelName = labelNames[note.labelId],
+                                labelName = note.labelId?.let { labelNames[it] },
                                 selected = note.id in selectedIds,
                                 onClick = { onNoteClick(note) },
                                 onLongClick = { onNoteLongClick(note) }
@@ -159,7 +159,7 @@ fun HomeScreen(
                         items(others, key = { it.id }) { note ->
                             NoteCard(
                                 note = note,
-                                labelName = labelNames[note.labelId],
+                                labelName = note.labelId?.let { labelNames[it] },
                                 selected = note.id in selectedIds,
                                 onClick = { onNoteClick(note) },
                                 onLongClick = { onNoteLongClick(note) }
@@ -224,6 +224,7 @@ private fun SectionHeader(text: String) {
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun NoteCard(
     note: Note,
