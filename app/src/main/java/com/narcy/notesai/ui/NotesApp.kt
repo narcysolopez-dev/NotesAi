@@ -1,6 +1,9 @@
 package com.narcy.notesai.ui
 
+import android.content.Context
+import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -118,15 +121,75 @@ private fun DrawerHome(
         scope.launch { drawerState.close() }
     }
 
+    var selectedIds by remember { mutableStateOf(setOf<Long>()) }
+    val selected = notes.filter { it.id in selectedIds }
+    val context = LocalContext.current
+
+    fun clearSelection() {
+        selectedIds = emptySet()
+    }
+
+    fun toggle(note: Note) {
+        selectedIds = if (note.id in selectedIds) selectedIds - note.id else selectedIds + note.id
+    }
+
     fun select(target: Section) {
+        clearSelection()
         viewModel.setSection(target)
         closeDrawer()
     }
+
+    val selection = SelectionActions(
+        onClear = { clearSelection() },
+        onTogglePin = {
+            val pin = !selected.all { it.pinned }
+            viewModel.update(selected) {
+                it.copy(pinned = pin, archived = if (pin) false else it.archived)
+            }
+            clearSelection()
+        },
+        onColor = { color ->
+            viewModel.update(selected) { it.copy(colorIndex = color) }
+            clearSelection()
+        },
+        onLabel = { labelId ->
+            viewModel.update(selected) { it.copy(labelId = labelId) }
+            clearSelection()
+        },
+        onArchive = {
+            val archive = section != Section.Archive
+            viewModel.update(selected) {
+                it.copy(archived = archive, pinned = if (archive) false else it.pinned)
+            }
+            clearSelection()
+        },
+        onTrash = {
+            viewModel.update(selected) { it.copy(trashed = true, pinned = false) }
+            clearSelection()
+        },
+        onRestore = {
+            viewModel.update(selected) { it.copy(trashed = false) }
+            clearSelection()
+        },
+        onDeleteForever = {
+            viewModel.deleteAllForever(selected)
+            clearSelection()
+        },
+        onDuplicate = {
+            viewModel.duplicate(selected)
+            clearSelection()
+        },
+        onShare = {
+            shareNotes(context, selected)
+            clearSelection()
+        }
+    )
 
     BackHandler(enabled = drawerState.isOpen) { closeDrawer() }
     BackHandler(enabled = !drawerState.isOpen && section != Section.Notes) {
         viewModel.setSection(Section.Notes)
     }
+    BackHandler(enabled = selected.isNotEmpty()) { clearSelection() }
 
     val searchHint = when (section) {
         Section.Notes -> "Buscar en tus notas"
@@ -200,7 +263,10 @@ private fun DrawerHome(
             gridMode = gridMode,
             onQueryChange = viewModel::setQuery,
             onMenu = { scope.launch { drawerState.open() } },
-            onOpen = onOpen,
+            selectedIds = selectedIds,
+            selection = selection,
+            onNoteClick = { note -> if (selected.isNotEmpty()) toggle(note) else onOpen(note) },
+            onNoteLongClick = { note -> toggle(note) },
             onNew = onNew,
             onEmptyTrash = { confirmEmptyTrash = true }
         )
@@ -267,6 +333,21 @@ private fun DrawerHome(
             }
         )
     }
+}
+
+private fun shareNotes(context: Context, notes: List<Note>) {
+    if (notes.isEmpty()) return
+    val text = notes.joinToString("\n\n") { note ->
+        listOf(note.title, note.content).filter { it.isNotBlank() }.joinToString("\n")
+    }
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+        notes.singleOrNull()?.title?.takeIf { it.isNotBlank() }?.let {
+            putExtra(Intent.EXTRA_SUBJECT, it)
+        }
+    }
+    context.startActivity(Intent.createChooser(send, "Enviar nota"))
 }
 
 @Composable

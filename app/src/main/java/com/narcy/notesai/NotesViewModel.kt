@@ -88,6 +88,36 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { dao.delete(note) }
     }
 
+    fun update(selected: List<Note>, transform: (Note) -> Note) {
+        if (selected.isEmpty()) return
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            selected.forEach { dao.upsert(transform(it).copy(updatedAt = now)) }
+        }
+    }
+
+    fun duplicate(selected: List<Note>) {
+        if (selected.isEmpty()) return
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            selected.forEach {
+                dao.upsert(
+                    it.copy(
+                        id = 0,
+                        title = if (it.title.isBlank()) "" else "Copia de ${it.title}",
+                        pinned = false,
+                        updatedAt = now
+                    )
+                )
+            }
+        }
+    }
+
+    fun deleteAllForever(selected: List<Note>) {
+        if (selected.isEmpty()) return
+        viewModelScope.launch { selected.forEach { dao.delete(it) } }
+    }
+
     fun emptyTrash() {
         viewModelScope.launch { dao.emptyTrash() }
     }

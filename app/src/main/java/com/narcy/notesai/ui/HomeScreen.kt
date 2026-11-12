@@ -1,7 +1,12 @@
 package com.narcy.notesai.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -56,11 +61,15 @@ fun HomeScreen(
     gridMode: Boolean,
     onQueryChange: (String) -> Unit,
     onMenu: () -> Unit,
-    onOpen: (Note) -> Unit,
+    selectedIds: Set<Long>,
+    selection: SelectionActions,
+    onNoteClick: (Note) -> Unit,
+    onNoteLongClick: (Note) -> Unit,
     onNew: () -> Unit,
     onEmptyTrash: () -> Unit
 ) {
     val labelNames = remember(labels) { labels.associate { it.id to it.name } }
+    val selected = notes.filter { it.id in selectedIds }
 
     Scaffold(
         floatingActionButton = {
@@ -78,7 +87,11 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            SearchBar(query, searchHint, onMenu, onQueryChange)
+            if (selected.isNotEmpty()) {
+                SelectionBar(selected, section, labels, selection)
+            } else {
+                SearchBar(query, searchHint, onMenu, onQueryChange)
+            }
 
             if (notes.isEmpty()) {
                 val emptyText = if (query.isNotBlank()) {
@@ -129,16 +142,28 @@ fun HomeScreen(
                     }
                     if (pinned.isNotEmpty()) {
                         item(span = StaggeredGridItemSpan.FullLine) { SectionHeader("Fijadas") }
-                        items(pinned, key = { it.id }) {
-                            NoteCard(it, labelNames[it.labelId]) { onOpen(it) }
+                        items(pinned, key = { it.id }) { note ->
+                            NoteCard(
+                                note = note,
+                                labelName = labelNames[note.labelId],
+                                selected = note.id in selectedIds,
+                                onClick = { onNoteClick(note) },
+                                onLongClick = { onNoteLongClick(note) }
+                            )
                         }
                     }
                     if (others.isNotEmpty()) {
                         if (pinned.isNotEmpty()) {
                             item(span = StaggeredGridItemSpan.FullLine) { SectionHeader("Otras") }
                         }
-                        items(others, key = { it.id }) {
-                            NoteCard(it, labelNames[it.labelId]) { onOpen(it) }
+                        items(others, key = { it.id }) { note ->
+                            NoteCard(
+                                note = note,
+                                labelName = labelNames[note.labelId],
+                                selected = note.id in selectedIds,
+                                onClick = { onNoteClick(note) },
+                                onLongClick = { onNoteLongClick(note) }
+                            )
                         }
                     }
                 }
@@ -200,13 +225,33 @@ private fun SectionHeader(text: String) {
 }
 
 @Composable
-private fun NoteCard(note: Note, labelName: String?, onClick: () -> Unit) {
+private fun NoteCard(
+    note: Note,
+    labelName: String?,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
     val textColor = noteTextColor()
+    val haptics = LocalHapticFeedback.current
+    val shape = RoundedCornerShape(16.dp)
     Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .clip(shape)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongClick()
+                }
+            ),
+        shape = shape,
         colors = CardDefaults.cardColors(containerColor = noteColor(note.colorIndex)),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = if (selected) {
+            BorderStroke(3.dp, MaterialTheme.colorScheme.primary)
+        } else {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        }
     ) {
         Column(Modifier.padding(14.dp)) {
             if (note.pinned) {
