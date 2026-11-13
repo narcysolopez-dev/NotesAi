@@ -24,6 +24,12 @@ interface NoteDao {
     @Query("DELETE FROM notes WHERE trashed = 1 AND updatedAt < :before")
     suspend fun purgeTrashedBefore(before: Long)
 
+    @Query("SELECT mediaPath FROM notes WHERE trashed = 1 AND mediaPath IS NOT NULL")
+    suspend fun trashedMedia(): List<String>
+
+    @Query("SELECT mediaPath FROM notes WHERE trashed = 1 AND updatedAt < :before AND mediaPath IS NOT NULL")
+    suspend fun trashedMediaBefore(before: Long): List<String>
+
     @Query("SELECT * FROM labels ORDER BY name COLLATE NOCASE")
     fun observeLabels(): Flow<List<Label>>
 

@@ -6,18 +6,25 @@ import androidx.lifecycle.viewModelScope
 import com.narcy.notesai.data.AppDatabase
 import com.narcy.notesai.data.AppSettings
 import com.narcy.notesai.data.Label
+import com.narcy.notesai.data.MediaFiles
 import com.narcy.notesai.data.Note
 import com.narcy.notesai.data.SettingsStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class NotesViewModel(app: Application) : AndroidViewModel(app) {
     private val dao = AppDatabase.get(app).noteDao()
     private val settingsStore = SettingsStore(app)
+
+    private fun deleteMedia(names: List<String?>) {
+        names.forEach { MediaFiles.delete(getApplication(), it) }
+    }
 
     val settings: StateFlow<AppSettings> = settingsStore.state
 
@@ -44,7 +51,10 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
     init {
         // Las notas en la papelera se eliminan después de 7 días.
         viewModelScope.launch {
-            dao.purgeTrashedBefore(System.currentTimeMillis() - TRASH_DAYS * DAY_MS)
+            val before = System.currentTimeMillis() - TRASH_DAYS * DAY_MS
+            val media = withContext(Dispatchers.IO) { dao.trashedMediaBefore(before) }
+            dao.purgeTrashedBefore(before)
+            withContext(Dispatchers.IO) { deleteMedia(media) }
         }
     }
 
@@ -59,7 +69,7 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun save(note: Note) {
         viewModelScope.launch {
-            val blank = note.title.isBlank() && note.content.isBlank()
+            val blank = note.title.isBlank() && note.content.isBlank() && note.mediaPath == null
             if (blank) {
                 if (note.id != 0L) dao.delete(note)
             } else {
@@ -85,7 +95,10 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteForever(note: Note) {
         if (note.id == 0L) return
-        viewModelScope.launch { dao.delete(note) }
+        viewModelScope.launch {
+            dao.delete(note)
+            withContext(Dispatchers.IO) { deleteMedia(listOf(note.mediaPath)) }
+        }
     }
 
     fun update(selected: List<Note>, transform: (Note) -> Note) {
@@ -101,9 +114,11 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             selected.forEach {
+                val mediaCopy = withContext(Dispatchers.IO) { MediaFiles.copy(getApplication(), it.mediaPath) }
                 dao.upsert(
                     it.copy(
                         id = 0,
+                        mediaPath = mediaCopy,
                         title = if (it.title.isBlank()) "" else "Copia de ${it.title}",
                         pinned = false,
                         updatedAt = now
@@ -115,11 +130,18 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteAllForever(selected: List<Note>) {
         if (selected.isEmpty()) return
-        viewModelScope.launch { selected.forEach { dao.delete(it) } }
+        viewModelScope.launch {
+            selected.forEach { dao.delete(it) }
+            withContext(Dispatchers.IO) { deleteMedia(selected.map { it.mediaPath }) }
+        }
     }
 
     fun emptyTrash() {
-        viewModelScope.launch { dao.emptyTrash() }
+        viewModelScope.launch {
+            val media = withContext(Dispatchers.IO) { dao.trashedMedia() }
+            dao.emptyTrash()
+            withContext(Dispatchers.IO) { deleteMedia(media) }
+        }
     }
 
     fun addLabel(name: String) {

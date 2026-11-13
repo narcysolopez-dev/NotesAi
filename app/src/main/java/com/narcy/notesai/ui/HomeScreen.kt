@@ -46,6 +46,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -318,6 +320,20 @@ private fun NoteCard(
                     tint = textColor.copy(alpha = 0.6f),
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
+            }
+            if (note.mediaPath != null && (note.noteType == NoteType.Drawing || note.noteType == NoteType.Image)) {
+                val bitmap by rememberNoteBitmap(note.mediaPath, 700)
+                bitmap?.let {
+                    Image(
+                        bitmap = it,
+                        contentDescription = null,
+                        contentScale = ContentScale.FillWidth,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
+                }
             }
             if (note.title.isNotBlank()) {
                 Text(

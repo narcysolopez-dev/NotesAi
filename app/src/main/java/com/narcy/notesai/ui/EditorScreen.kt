@@ -45,6 +45,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -54,10 +55,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.narcy.notesai.data.CheckItem
 import com.narcy.notesai.data.Label
+import com.narcy.notesai.data.MediaFiles
 import com.narcy.notesai.data.Note
 import com.narcy.notesai.data.NoteType
 import com.narcy.notesai.data.noteType
@@ -105,8 +108,33 @@ fun EditorScreen(
         labelId = labelId
     )
 
+    val context = LocalContext.current
+
+    val drawing = remember { DrawingState() }
+    if (type == NoteType.Drawing) {
+        val base by rememberNoteBitmap(initial.mediaPath, 2048)
+        SideEffect { if (drawing.base == null) drawing.base = base }
+    }
+
+    /** Guarda en disco lo que haya en el lienzo y devuelve la nota lista para guardar. */
+    fun persisted(): Note {
+        val note = current()
+        if (readOnly || type != NoteType.Drawing || !drawing.changed) return note
+        if (drawing.blank) {
+            MediaFiles.delete(context, initial.mediaPath)
+            return note.copy(mediaPath = null)
+        }
+        val name = MediaFiles.newName("png")
+        return if (drawing.renderTo(MediaFiles.file(context, name))) {
+            MediaFiles.delete(context, initial.mediaPath)
+            note.copy(mediaPath = name)
+        } else {
+            note
+        }
+    }
+
     fun saveAndClose() {
-        if (!readOnly) onSave(current())
+        if (!readOnly) onSave(persisted())
         onClose()
     }
 
@@ -163,7 +191,7 @@ fun EditorScreen(
                         }
                         IconButton(onClick = {
                             val nowArchived = !archived
-                            onSave(current().copy(archived = nowArchived, pinned = if (nowArchived) false else pinned))
+                            onSave(persisted().copy(archived = nowArchived, pinned = if (nowArchived) false else pinned))
                             onClose()
                         }) {
                             Icon(
@@ -198,7 +226,7 @@ fun EditorScreen(
                             }
                         }
                         IconButton(onClick = {
-                            onTrash(current())
+                            onTrash(persisted())
                             onClose()
                         }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Enviar a la papelera", tint = textColor)
@@ -223,7 +251,7 @@ fun EditorScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .let { if (type == NoteType.Drawing) it else it.verticalScroll(rememberScrollState()) }
         ) {
             TextField(
                 value = title,
@@ -235,6 +263,12 @@ fun EditorScreen(
                 colors = fieldColors
             )
             when (type) {
+                NoteType.Drawing -> DrawingEditor(
+                    state = drawing,
+                    readOnly = readOnly,
+                    modifier = Modifier.weight(1f)
+                )
+
                 NoteType.Checklist -> ChecklistEditor(
                     items = checklist,
                     readOnly = readOnly,
