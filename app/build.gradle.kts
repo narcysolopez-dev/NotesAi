@@ -14,8 +14,20 @@ android {
         applicationId = "com.narcy.notesai"
         minSdk = 26
         targetSdk = 34
-        versionCode = 13
-        versionName = "1.12"
+        versionCode = 14
+        versionName = "1.13"
+    }
+
+    // Llave de depuración fija (contraseña pública "android"): así todos los APK que compila
+    // GitHub Actions llevan el mismo SHA-1, que se registra una vez en Firebase.
+    // Solo es para builds de depuración; nunca la uses para publicar la app.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
