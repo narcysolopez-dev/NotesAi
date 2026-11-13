@@ -19,11 +19,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class NotesViewModel(app: Application) : AndroidViewModel(app) {
+    private val appContext: Application = app
     private val dao = AppDatabase.get(app).noteDao()
     private val settingsStore = SettingsStore(app)
 
     private fun deleteMedia(names: List<String?>) {
-        names.forEach { MediaFiles.delete(getApplication(), it) }
+        names.forEach { MediaFiles.delete(appContext, it) }
     }
 
     val settings: StateFlow<AppSettings> = settingsStore.state
@@ -114,7 +115,7 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             selected.forEach {
-                val mediaCopy = withContext(Dispatchers.IO) { MediaFiles.copy(getApplication(), it.mediaPath) }
+                val mediaCopy = withContext(Dispatchers.IO) { MediaFiles.copy(appContext, it.mediaPath) }
                 dao.upsert(
                     it.copy(
                         id = 0,
