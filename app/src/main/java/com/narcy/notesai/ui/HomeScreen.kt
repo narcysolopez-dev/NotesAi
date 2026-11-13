@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.narcy.notesai.Section
 import com.narcy.notesai.data.Label
+import com.narcy.notesai.data.CloudUser
 import com.narcy.notesai.data.Note
 import com.narcy.notesai.data.NoteType
 import com.narcy.notesai.data.noteType
@@ -75,6 +76,8 @@ fun HomeScreen(
     gridMode: Boolean,
     onQueryChange: (String) -> Unit,
     onMenu: () -> Unit,
+    user: CloudUser?,
+    onAccount: () -> Unit,
     selectedIds: Set<Long>,
     selection: SelectionActions,
     onNoteClick: (Note) -> Unit,
@@ -110,7 +113,7 @@ fun HomeScreen(
             if (selected.isNotEmpty()) {
                 SelectionBar(selected, section, labels, selection)
             } else {
-                SearchBar(query, searchHint, onMenu, onQueryChange)
+                SearchBar(query, searchHint, onMenu, onQueryChange, user, onAccount)
             }
 
             if (notes.isEmpty()) {
@@ -238,7 +241,9 @@ private fun SearchBar(
     query: String,
     hint: String,
     onMenu: () -> Unit,
-    onQueryChange: (String) -> Unit
+    onQueryChange: (String) -> Unit,
+    user: CloudUser?,
+    onAccount: () -> Unit
 ) {
     Surface(
         modifier = Modifier
@@ -258,9 +263,14 @@ private fun SearchBar(
                 }
             },
             trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Borrar búsqueda")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { onQueryChange("") }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Borrar búsqueda")
+                        }
+                    }
+                    IconButton(onClick = onAccount) {
+                        AccountAvatar(user, size = 32.dp)
                     }
                 }
             },
