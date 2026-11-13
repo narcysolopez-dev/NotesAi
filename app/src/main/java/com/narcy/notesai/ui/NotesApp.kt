@@ -45,6 +45,9 @@ import com.narcy.notesai.NotesViewModel
 import com.narcy.notesai.Section
 import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.Note
+import com.narcy.notesai.data.NoteType
+import com.narcy.notesai.data.checklistToPlainText
+import com.narcy.notesai.data.noteType
 import kotlinx.coroutines.launch
 
 private enum class Page { Home, Settings, Help }
@@ -88,8 +91,11 @@ fun NotesApp(viewModel: NotesViewModel) {
             labels = labels,
             gridMode = settings.grid,
             onOpen = { editing = it },
-            onNew = {
-                editing = Note(labelId = (section as? Section.Label)?.id)
+            onNew = { type ->
+                editing = Note(
+                    type = type.key,
+                    labelId = (section as? Section.Label)?.id
+                )
             },
             onSettings = { page = Page.Settings },
             onHelp = { page = Page.Help }
@@ -106,7 +112,7 @@ private fun DrawerHome(
     labels: List<Label>,
     gridMode: Boolean,
     onOpen: (Note) -> Unit,
-    onNew: () -> Unit,
+    onNew: (NoteType) -> Unit,
     onSettings: () -> Unit,
     onHelp: () -> Unit
 ) {
@@ -338,7 +344,10 @@ private fun DrawerHome(
 private fun shareNotes(context: Context, notes: List<Note>) {
     if (notes.isEmpty()) return
     val text = notes.joinToString("\n\n") { note ->
-        listOf(note.title, note.content).filter { it.isNotBlank() }.joinToString("\n")
+        listOf(
+            note.title,
+            if (note.noteType == NoteType.Checklist) checklistToPlainText(note.content) else note.content
+        ).filter { it.isNotBlank() }.joinToString("\n")
     }
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"

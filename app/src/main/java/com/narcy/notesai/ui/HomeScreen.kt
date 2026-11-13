@@ -20,14 +20,17 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,16 +41,27 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.narcy.notesai.Section
 import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.Note
+import com.narcy.notesai.data.NoteType
+import com.narcy.notesai.data.noteType
+import com.narcy.notesai.data.parseChecklist
+import com.narcy.notesai.data.parseSpans
 import com.narcy.notesai.ui.theme.noteColor
 import com.narcy.notesai.ui.theme.noteTextColor
 
@@ -65,19 +79,25 @@ fun HomeScreen(
     selection: SelectionActions,
     onNoteClick: (Note) -> Unit,
     onNoteLongClick: (Note) -> Unit,
-    onNew: () -> Unit,
+    onNew: (NoteType) -> Unit,
     onEmptyTrash: () -> Unit
 ) {
     val labelNames = remember(labels) { labels.associate { it.id to it.name } }
     val selected = notes.filter { it.id in selectedIds }
+    var menuOpen by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = menuOpen) { menuOpen = false }
 
     Scaffold(
         floatingActionButton = {
-            if (section is Section.Notes || section is Section.Label) {
-                ExtendedFloatingActionButton(
-                    onClick = onNew,
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    text = { Text("Nueva nota") }
+            if ((section is Section.Notes || section is Section.Label) && selected.isEmpty()) {
+                NewNoteMenu(
+                    expanded = menuOpen,
+                    onToggle = { menuOpen = !menuOpen },
+                    onPick = { type ->
+                        menuOpen = false
+                        onNew(type)
+                    }
                 )
             }
         }
@@ -173,6 +193,47 @@ fun HomeScreen(
 }
 
 @Composable
+private fun NewNoteMenu(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onPick: (NoteType) -> Unit
+) {
+    val container = MaterialTheme.colorScheme.primaryContainer
+    val content = MaterialTheme.colorScheme.onPrimaryContainer
+
+    if (!expanded) {
+        ExtendedFloatingActionButton(
+            onClick = onToggle,
+            icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+            text = { Text("Nueva nota") }
+        )
+        return
+    }
+
+    Column(
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        NoteType.menu.forEach { type ->
+            ExtendedFloatingActionButton(
+                onClick = { onPick(type) },
+                icon = { Icon(type.icon(), contentDescription = null) },
+                text = { Text(type.label) },
+                containerColor = container,
+                contentColor = content
+            )
+        }
+        FloatingActionButton(
+            onClick = onToggle,
+            containerColor = container,
+            contentColor = content
+        ) {
+            Icon(Icons.Filled.Close, contentDescription = "Cerrar menú")
+        }
+    }
+}
+
+@Composable
 private fun SearchBar(
     query: String,
     hint: String,
@@ -263,6 +324,20 @@ private fun NoteCard(
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
             }
+            if (note.mediaPath != null && (note.noteType == NoteType.Drawing || note.noteType == NoteType.Image)) {
+                val bitmap by rememberNoteBitmap(note.mediaPath, 700)
+                bitmap?.let {
+                    Image(
+                        bitmap = it,
+                        contentDescription = null,
+                        contentScale = ContentScale.FillWidth,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
+                }
+            }
             if (note.title.isNotBlank()) {
                 Text(
                     text = note.title,
@@ -273,9 +348,50 @@ private fun NoteCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (note.content.isNotBlank()) {
+            if (note.noteType == NoteType.Audio) {
+                Row(
+                    Modifier.padding(top = if (note.title.isNotBlank()) 6.dp else 0.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.Mic, contentDescription = null, tint = textColor.copy(alpha = 0.7f))
+                    Text(
+                        text = "  Nota de audio",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = textColor
+                    )
+                }
+            }
+            if (note.noteType == NoteType.Checklist) {
+                val items = remember(note.content) { parseChecklist(note.content) }
+                items.take(8).forEach { item ->
+                    Text(
+                        text = (if (item.checked) "☑  " else "☐  ") + item.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (item.checked) textColor.copy(alpha = 0.55f) else textColor,
+                        textDecoration = if (item.checked) TextDecoration.LineThrough else TextDecoration.None,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                if (items.size > 8) {
+                    Text(
+                        text = "+ ${items.size - 8} más",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = textColor.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            } else if (note.content.isNotBlank()) {
+                val body = remember(note.content, note.spans) {
+                    if (note.noteType == NoteType.Text && note.spans != null) {
+                        buildRichText(note.content, parseSpans(note.spans, note.content.length))
+                    } else {
+                        AnnotatedString(note.content)
+                    }
+                }
                 Text(
-                    text = note.content,
+                    text = body,
                     style = MaterialTheme.typography.bodyMedium,
                     color = textColor,
                     maxLines = 10,
