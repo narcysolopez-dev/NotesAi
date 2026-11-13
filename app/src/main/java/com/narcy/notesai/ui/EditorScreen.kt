@@ -1,6 +1,9 @@
 package com.narcy.notesai.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,7 +48,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -66,6 +71,9 @@ import com.narcy.notesai.data.NoteType
 import com.narcy.notesai.data.noteType
 import com.narcy.notesai.data.parseChecklist
 import com.narcy.notesai.data.serializeChecklist
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.narcy.notesai.ui.theme.noteColor
 import com.narcy.notesai.ui.theme.noteColorCount
 import com.narcy.notesai.ui.theme.noteTextColor
@@ -88,6 +96,7 @@ fun EditorScreen(
     var archived by remember { mutableStateOf(initial.archived) }
     var labelId by remember { mutableStateOf(initial.labelId) }
     var labelMenu by remember { mutableStateOf(false) }
+    var mediaPath by remember { mutableStateOf(initial.mediaPath) }
 
     val readOnly = initial.trashed
     val type = initial.noteType
@@ -105,7 +114,8 @@ fun EditorScreen(
         colorIndex = colorIndex,
         pinned = pinned,
         archived = archived,
-        labelId = labelId
+        labelId = labelId,
+        mediaPath = mediaPath
     )
 
     val context = LocalContext.current
@@ -116,9 +126,39 @@ fun EditorScreen(
         SideEffect { if (drawing.base == null) drawing.base = base }
     }
 
+    val scope = rememberCoroutineScope()
+
+    /** Reemplaza el archivo de imagen/audio de la nota, borrando el que había creado en esta sesión. */
+    fun replaceMedia(name: String) {
+        val previous = mediaPath
+        if (previous != null && previous != initial.mediaPath) MediaFiles.delete(context, previous)
+        mediaPath = name
+    }
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val name = withContext(Dispatchers.IO) { MediaFiles.importImage(context, uri) }
+                if (name != null) replaceMedia(name)
+            }
+        }
+    }
+    fun pickImage() {
+        imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
+    if (type == NoteType.Image) {
+        LaunchedEffect(Unit) {
+            if (initial.mediaPath == null && !readOnly) pickImage()
+        }
+    }
+
     /** Guarda en disco lo que haya en el lienzo y devuelve la nota lista para guardar. */
     fun persisted(): Note {
         val note = current()
+        if (!readOnly && (type == NoteType.Image || type == NoteType.Audio) && mediaPath != initial.mediaPath) {
+            MediaFiles.delete(context, initial.mediaPath)
+        }
         if (readOnly || type != NoteType.Drawing || !drawing.changed) return note
         if (drawing.blank) {
             MediaFiles.delete(context, initial.mediaPath)
@@ -267,6 +307,16 @@ fun EditorScreen(
                     state = drawing,
                     readOnly = readOnly,
                     modifier = Modifier.weight(1f)
+                )
+
+                NoteType.Image -> ImageEditor(
+                    mediaPath = mediaPath,
+                    readOnly = readOnly,
+                    onPick = { pickImage() },
+                    content = content,
+                    onContentChange = { content = it },
+                    textColor = textColor,
+                    fieldColors = fieldColors
                 )
 
                 NoteType.Checklist -> ChecklistEditor(
