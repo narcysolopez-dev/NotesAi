@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FormatColorReset
+import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -112,6 +113,13 @@ fun RichTextToolbar(state: RichTextState, modifier: Modifier = Modifier) {
                 label = "Resaltar",
                 active = panel == Panel.Highlight || state.current.highlight != 0,
                 onClick = { toggle(Panel.Highlight) }
+            )
+            val underlined = state.all { it.underline }
+            FormatButton(
+                icon = Icons.Filled.FormatUnderlined,
+                label = "Subrayar",
+                active = underlined,
+                onClick = { state.applyFormat { it.copy(underline = !underlined) } }
             )
         }
     }

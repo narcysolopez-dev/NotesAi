@@ -9,7 +9,8 @@ import org.json.JSONObject
  */
 data class Fmt(
     /** Color de resaltado (ARGB). 0 = sin resaltado. */
-    val highlight: Int = 0
+    val highlight: Int = 0,
+    val underline: Boolean = false
 ) {
     val isDefault: Boolean get() = this == Fmt()
 }
@@ -25,7 +26,8 @@ fun parseSpans(json: String?, length: Int): List<Fmt> {
             val start = o.getInt("s").coerceIn(0, length)
             val end = o.getInt("e").coerceIn(start, length)
             val fmt = Fmt(
-                highlight = o.optInt("h", 0)
+                highlight = o.optInt("h", 0),
+                underline = o.optInt("u", 0) == 1
             )
             for (k in start until end) result[k] = fmt
         }
@@ -47,6 +49,7 @@ fun serializeSpans(styles: List<Fmt>): String? {
                     put("s", i)
                     put("e", j)
                     if (fmt.highlight != 0) put("h", fmt.highlight)
+                    if (fmt.underline) put("u", 1)
                 }
             )
         }

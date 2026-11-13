@@ -33,6 +33,7 @@ private val tips = listOf(
     "En un dibujo, elige un color y dibuja con el dedo; usa deshacer o borrar todo si te equivocas.",
     "En una lista, pulsa Siguiente en el teclado para agregar otro elemento y marca los terminados con la casilla.",
     "En una nota de texto, selecciona palabras y usa el marcador de la barra inferior para resaltarlas con un color.",
+    "Toca la U de la barra de formato para subrayar el texto seleccionado (o lo que escribas a continuación).",
     "Las notas de la papelera se eliminan definitivamente después de 7 días."
 )
 
