@@ -12,7 +12,9 @@ data class Fmt(
     val highlight: Int = 0,
     val underline: Boolean = false,
     /** Posición en la lista de fuentes (ui/Fonts.kt). 0 = predeterminada. */
-    val font: Int = 0
+    val font: Int = 0,
+    /** Color del texto (ARGB). 0 = el color normal de la nota. */
+    val color: Int = 0
 ) {
     val isDefault: Boolean get() = this == Fmt()
 }
@@ -30,7 +32,8 @@ fun parseSpans(json: String?, length: Int): List<Fmt> {
             val fmt = Fmt(
                 highlight = o.optInt("h", 0),
                 underline = o.optInt("u", 0) == 1,
-                font = o.optInt("f", 0)
+                font = o.optInt("f", 0),
+                color = o.optInt("c", 0)
             )
             for (k in start until end) result[k] = fmt
         }
@@ -54,6 +57,7 @@ fun serializeSpans(styles: List<Fmt>): String? {
                     if (fmt.highlight != 0) put("h", fmt.highlight)
                     if (fmt.underline) put("u", 1)
                     if (fmt.font != 0) put("f", fmt.font)
+                    if (fmt.color != 0) put("c", fmt.color)
                 }
             )
         }

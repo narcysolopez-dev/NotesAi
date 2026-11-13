@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FontDownload
 import androidx.compose.material.icons.filled.FormatColorReset
+import androidx.compose.material.icons.filled.FormatColorText
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material3.FilterChip
@@ -45,6 +46,21 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.narcy.notesai.data.Fmt
+
+/** Colores del texto (ARGB). */
+val textColors = listOf(
+    0xFFD93025.toInt(), // rojo
+    0xFFE8710A.toInt(), // naranja
+    0xFFF9AB00.toInt(), // ámbar
+    0xFF188038.toInt(), // verde
+    0xFF00897B.toInt(), // turquesa
+    0xFF1A73E8.toInt(), // azul
+    0xFF3949AB.toInt(), // índigo
+    0xFF9334E6.toInt(), // morado
+    0xFFEC4EC9.toInt(), // rosa
+    0xFF000000.toInt(), // negro
+    0xFFFFFFFF.toInt()  // blanco
+)
 
 /** Colores de resaltado (ARGB), de tonos claros para que el texto se lea encima. */
 val highlightColors = listOf(
@@ -82,7 +98,7 @@ fun RichTextField(
     )
 }
 
-private enum class Panel { None, Font, Highlight }
+private enum class Panel { None, Font, TextColor, Highlight }
 
 /** Barra de formato del editor de texto. */
 @Composable
@@ -116,6 +132,13 @@ fun RichTextToolbar(state: RichTextState, modifier: Modifier = Modifier) {
                 }
             }
 
+            Panel.TextColor -> ColorRow(
+                colors = textColors,
+                selected = state.current.color.takeIf { it != 0 },
+                resetLabel = "Color normal",
+                onPick = { color -> state.applyFormat { it.copy(color = color ?: 0) } }
+            )
+
             Panel.None -> Unit
         }
         Row(
@@ -130,6 +153,12 @@ fun RichTextToolbar(state: RichTextState, modifier: Modifier = Modifier) {
                 label = "Fuente",
                 active = panel == Panel.Font || state.current.font != 0,
                 onClick = { toggle(Panel.Font) }
+            )
+            FormatButton(
+                icon = Icons.Filled.FormatColorText,
+                label = "Color del texto",
+                active = panel == Panel.TextColor || state.current.color != 0,
+                onClick = { toggle(Panel.TextColor) }
             )
             FormatButton(
                 icon = Icons.Filled.Highlight,

@@ -35,6 +35,7 @@ private val tips = listOf(
     "En una nota de texto, selecciona palabras y usa el marcador de la barra inferior para resaltarlas con un color.",
     "Toca la U de la barra de formato para subrayar el texto seleccionado (o lo que escribas a continuación).",
     "Con el icono de fuente puedes cambiar el tipo de letra de las palabras seleccionadas.",
+    "Cambia el color de las letras con el icono de color de texto de la barra de formato.",
     "Las notas de la papelera se eliminan definitivamente después de 7 días."
 )
 

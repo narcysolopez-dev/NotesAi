@@ -12,7 +12,11 @@ private val TextOnHighlight = Color(0xFF202124)
 
 fun spanStyleFor(fmt: Fmt): SpanStyle = SpanStyle(
     background = if (fmt.highlight != 0) Color(fmt.highlight) else Color.Unspecified,
-    color = if (fmt.highlight != 0) TextOnHighlight else Color.Unspecified,
+    color = when {
+        fmt.color != 0 -> Color(fmt.color)
+        fmt.highlight != 0 -> TextOnHighlight
+        else -> Color.Unspecified
+    },
     textDecoration = if (fmt.underline) TextDecoration.Underline else null,
     fontFamily = noteFonts.getOrNull(fmt.font)?.family
 )
