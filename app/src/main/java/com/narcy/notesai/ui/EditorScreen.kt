@@ -1,5 +1,7 @@
 package com.narcy.notesai.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -48,6 +50,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.rememberCoroutineScope
@@ -153,8 +156,39 @@ fun EditorScreen(
         }
     }
 
+    val recorder = remember { AudioRecorder(context) }
+    val player = remember { AudioPlayer(context) }
+    var micDenied by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) {
+        onDispose {
+            recorder.release()
+            player.release()
+        }
+    }
+
+    fun startRecording() {
+        player.stop()
+        micDenied = !recorder.start()
+    }
+
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startRecording() else micDenied = true
+    }
+    fun requestRecording() {
+        micDenied = false
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startRecording()
+        } else {
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+    fun stopRecording() {
+        recorder.stop()?.let { replaceMedia(it) }
+    }
+
     /** Guarda en disco lo que haya en el lienzo y devuelve la nota lista para guardar. */
     fun persisted(): Note {
+        if (recorder.recording) stopRecording()
         val note = current()
         if (!readOnly && (type == NoteType.Image || type == NoteType.Audio) && mediaPath != initial.mediaPath) {
             MediaFiles.delete(context, initial.mediaPath)
@@ -307,6 +341,20 @@ fun EditorScreen(
                     state = drawing,
                     readOnly = readOnly,
                     modifier = Modifier.weight(1f)
+                )
+
+                NoteType.Audio -> AudioEditor(
+                    recorder = recorder,
+                    player = player,
+                    mediaPath = mediaPath,
+                    readOnly = readOnly,
+                    micDenied = micDenied,
+                    onRecord = { requestRecording() },
+                    onStop = { stopRecording() },
+                    content = content,
+                    onContentChange = { content = it },
+                    textColor = textColor,
+                    fieldColors = fieldColors
                 )
 
                 NoteType.Image -> ImageEditor(

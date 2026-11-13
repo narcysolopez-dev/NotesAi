@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -344,6 +345,19 @@ private fun NoteCard(
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+            if (note.noteType == NoteType.Audio) {
+                Row(
+                    Modifier.padding(top = if (note.title.isNotBlank()) 6.dp else 0.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.Mic, contentDescription = null, tint = textColor.copy(alpha = 0.7f))
+                    Text(
+                        text = "  Nota de audio",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = textColor
+                    )
+                }
             }
             if (note.noteType == NoteType.Checklist) {
                 val items = remember(note.content) { parseChecklist(note.content) }
