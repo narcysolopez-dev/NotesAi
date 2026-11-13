@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,7 +40,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import com.narcy.notesai.Section
 import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.Note
+import com.narcy.notesai.data.NoteType
 import com.narcy.notesai.ui.theme.noteColor
 import com.narcy.notesai.ui.theme.noteTextColor
 
@@ -65,19 +71,25 @@ fun HomeScreen(
     selection: SelectionActions,
     onNoteClick: (Note) -> Unit,
     onNoteLongClick: (Note) -> Unit,
-    onNew: () -> Unit,
+    onNew: (NoteType) -> Unit,
     onEmptyTrash: () -> Unit
 ) {
     val labelNames = remember(labels) { labels.associate { it.id to it.name } }
     val selected = notes.filter { it.id in selectedIds }
+    var menuOpen by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = menuOpen) { menuOpen = false }
 
     Scaffold(
         floatingActionButton = {
-            if (section is Section.Notes || section is Section.Label) {
-                ExtendedFloatingActionButton(
-                    onClick = onNew,
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    text = { Text("Nueva nota") }
+            if ((section is Section.Notes || section is Section.Label) && selected.isEmpty()) {
+                NewNoteMenu(
+                    expanded = menuOpen,
+                    onToggle = { menuOpen = !menuOpen },
+                    onPick = { type ->
+                        menuOpen = false
+                        onNew(type)
+                    }
                 )
             }
         }
@@ -168,6 +180,47 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun NewNoteMenu(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onPick: (NoteType) -> Unit
+) {
+    val container = MaterialTheme.colorScheme.primaryContainer
+    val content = MaterialTheme.colorScheme.onPrimaryContainer
+
+    if (!expanded) {
+        ExtendedFloatingActionButton(
+            onClick = onToggle,
+            icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+            text = { Text("Nueva nota") }
+        )
+        return
+    }
+
+    Column(
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        NoteType.menu.forEach { type ->
+            ExtendedFloatingActionButton(
+                onClick = { onPick(type) },
+                icon = { Icon(type.icon(), contentDescription = null) },
+                text = { Text(type.label) },
+                containerColor = container,
+                contentColor = content
+            )
+        }
+        FloatingActionButton(
+            onClick = onToggle,
+            containerColor = container,
+            contentColor = content
+        ) {
+            Icon(Icons.Filled.Close, contentDescription = "Cerrar menú")
         }
     }
 }

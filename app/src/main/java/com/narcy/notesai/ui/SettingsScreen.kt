@@ -22,8 +22,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.narcy.notesai.data.AppSettings
@@ -105,6 +107,23 @@ fun SettingsScreen(
                 enabled = dynamicSupported,
                 onCheckedChange = { checked -> onChange { s -> s.copy(dynamicColor = checked) } }
             )
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+            val context = LocalContext.current
+            val versionName = remember {
+                runCatching {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                }.getOrNull() ?: "—"
+            }
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Text("Versión", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    versionName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

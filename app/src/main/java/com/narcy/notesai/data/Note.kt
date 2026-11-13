@@ -14,5 +14,8 @@ data class Note(
     val updatedAt: Long = System.currentTimeMillis(),
     @ColumnInfo(defaultValue = "0") val archived: Boolean = false,
     @ColumnInfo(defaultValue = "0") val trashed: Boolean = false,
-    val labelId: Long? = null
+    val labelId: Long? = null,
+    val type: String = "text",
+    /** Nombre del archivo (en filesDir/media) de la imagen, dibujo o audio de la nota. */
+    val mediaPath: String? = null
 )

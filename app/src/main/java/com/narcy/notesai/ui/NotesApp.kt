@@ -45,6 +45,7 @@ import com.narcy.notesai.NotesViewModel
 import com.narcy.notesai.Section
 import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.Note
+import com.narcy.notesai.data.NoteType
 import kotlinx.coroutines.launch
 
 private enum class Page { Home, Settings, Help }
@@ -88,8 +89,11 @@ fun NotesApp(viewModel: NotesViewModel) {
             labels = labels,
             gridMode = settings.grid,
             onOpen = { editing = it },
-            onNew = {
-                editing = Note(labelId = (section as? Section.Label)?.id)
+            onNew = { type ->
+                editing = Note(
+                    type = type.key,
+                    labelId = (section as? Section.Label)?.id
+                )
             },
             onSettings = { page = Page.Settings },
             onHelp = { page = Page.Help }
@@ -106,7 +110,7 @@ private fun DrawerHome(
     labels: List<Label>,
     gridMode: Boolean,
     onOpen: (Note) -> Unit,
-    onNew: () -> Unit,
+    onNew: (NoteType) -> Unit,
     onSettings: () -> Unit,
     onHelp: () -> Unit
 ) {
