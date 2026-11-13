@@ -111,9 +111,16 @@ fun EditorScreen(
         }
     }
 
+    val rich = remember { RichTextState(initial.content, initial.spans) }
+
     fun current(): Note = initial.copy(
         title = title,
-        content = if (type == NoteType.Checklist) serializeChecklist(checklist) else content,
+        content = when (type) {
+            NoteType.Checklist -> serializeChecklist(checklist)
+            NoteType.Text -> rich.value.text
+            else -> content
+        },
+        spans = if (type == NoteType.Text) rich.spansJson() else initial.spans,
         colorIndex = colorIndex,
         pinned = pinned,
         archived = archived,
@@ -311,13 +318,17 @@ fun EditorScreen(
         },
         bottomBar = {
             if (!readOnly) {
-                ColorPicker(
-                    selected = colorIndex,
-                    onSelect = { colorIndex = it },
-                    modifier = Modifier
+                Column(
+                    Modifier
                         .navigationBarsPadding()
                         .imePadding()
-                )
+                ) {
+                    if (type == NoteType.Text) RichTextToolbar(rich)
+                    ColorPicker(
+                        selected = colorIndex,
+                        onSelect = { colorIndex = it }
+                    )
+                }
             }
         }
     ) { padding ->
@@ -375,16 +386,13 @@ fun EditorScreen(
                     textStyle = MaterialTheme.typography.bodyLarge
                 )
 
-                else -> TextField(
-                    value = content,
-                    onValueChange = { content = it },
+                else -> RichTextField(
+                    state = rich,
                     readOnly = readOnly,
+                    fieldColors = fieldColors,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 24.dp),
-                    placeholder = { Text("Escribe una nota") },
-                    textStyle = MaterialTheme.typography.bodyLarge,
-                    colors = fieldColors
+                        .padding(bottom = 24.dp)
                 )
             }
         }

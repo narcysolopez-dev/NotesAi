@@ -17,5 +17,7 @@ data class Note(
     val labelId: Long? = null,
     val type: String = "text",
     /** Nombre del archivo (en filesDir/media) de la imagen, dibujo o audio de la nota. */
-    val mediaPath: String? = null
+    val mediaPath: String? = null,
+    /** Formato del texto (resaltado, subrayado, fuente, color) en JSON. Ver RichText.kt. */
+    val spans: String? = null
 )

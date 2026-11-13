@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +61,7 @@ import com.narcy.notesai.data.Note
 import com.narcy.notesai.data.NoteType
 import com.narcy.notesai.data.noteType
 import com.narcy.notesai.data.parseChecklist
+import com.narcy.notesai.data.parseSpans
 import com.narcy.notesai.ui.theme.noteColor
 import com.narcy.notesai.ui.theme.noteTextColor
 
@@ -381,8 +383,15 @@ private fun NoteCard(
                     )
                 }
             } else if (note.content.isNotBlank()) {
+                val body = remember(note.content, note.spans) {
+                    if (note.noteType == NoteType.Text && note.spans != null) {
+                        buildRichText(note.content, parseSpans(note.spans, note.content.length))
+                    } else {
+                        AnnotatedString(note.content)
+                    }
+                }
                 Text(
-                    text = note.content,
+                    text = body,
                     style = MaterialTheme.typography.bodyMedium,
                     color = textColor,
                     maxLines = 10,
