@@ -48,12 +48,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.narcy.notesai.Section
 import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.Note
 import com.narcy.notesai.data.NoteType
+import com.narcy.notesai.data.noteType
+import com.narcy.notesai.data.parseChecklist
 import com.narcy.notesai.ui.theme.noteColor
 import com.narcy.notesai.ui.theme.noteTextColor
 
@@ -326,7 +329,28 @@ private fun NoteCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (note.content.isNotBlank()) {
+            if (note.noteType == NoteType.Checklist) {
+                val items = remember(note.content) { parseChecklist(note.content) }
+                items.take(8).forEach { item ->
+                    Text(
+                        text = (if (item.checked) "☑  " else "☐  ") + item.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (item.checked) textColor.copy(alpha = 0.55f) else textColor,
+                        textDecoration = if (item.checked) TextDecoration.LineThrough else TextDecoration.None,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                if (items.size > 8) {
+                    Text(
+                        text = "+ ${items.size - 8} más",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = textColor.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            } else if (note.content.isNotBlank()) {
                 Text(
                     text = note.content,
                     style = MaterialTheme.typography.bodyMedium,

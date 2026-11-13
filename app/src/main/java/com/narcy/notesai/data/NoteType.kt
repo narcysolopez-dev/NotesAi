@@ -12,7 +12,7 @@ enum class NoteType(val key: String, val label: String) {
         fun fromKey(key: String): NoteType = entries.firstOrNull { it.key == key } ?: Text
 
         /** Opciones que aparecen en el menú "Nueva nota", de arriba hacia abajo. */
-        val menu: List<NoteType> = listOf(Text)
+        val menu: List<NoteType> = listOf(Checklist, Text)
     }
 }
 

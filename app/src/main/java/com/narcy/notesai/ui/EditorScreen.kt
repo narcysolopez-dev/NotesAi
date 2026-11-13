@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,8 +56,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.narcy.notesai.data.CheckItem
 import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.Note
+import com.narcy.notesai.data.NoteType
+import com.narcy.notesai.data.noteType
+import com.narcy.notesai.data.parseChecklist
+import com.narcy.notesai.data.serializeChecklist
 import com.narcy.notesai.ui.theme.noteColor
 import com.narcy.notesai.ui.theme.noteColorCount
 import com.narcy.notesai.ui.theme.noteTextColor
@@ -81,10 +87,18 @@ fun EditorScreen(
     var labelMenu by remember { mutableStateOf(false) }
 
     val readOnly = initial.trashed
+    val type = initial.noteType
+
+    val checklist = remember {
+        mutableStateListOf<CheckItem>().apply {
+            addAll(parseChecklist(initial.content))
+            if (isEmpty()) add(CheckItem(""))
+        }
+    }
 
     fun current(): Note = initial.copy(
         title = title,
-        content = content,
+        content = if (type == NoteType.Checklist) serializeChecklist(checklist) else content,
         colorIndex = colorIndex,
         pinned = pinned,
         archived = archived,
@@ -220,17 +234,27 @@ fun EditorScreen(
                 textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                 colors = fieldColors
             )
-            TextField(
-                value = content,
-                onValueChange = { content = it },
-                readOnly = readOnly,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-                placeholder = { Text("Escribe una nota") },
-                textStyle = MaterialTheme.typography.bodyLarge,
-                colors = fieldColors
-            )
+            when (type) {
+                NoteType.Checklist -> ChecklistEditor(
+                    items = checklist,
+                    readOnly = readOnly,
+                    textColor = textColor,
+                    fieldColors = fieldColors,
+                    textStyle = MaterialTheme.typography.bodyLarge
+                )
+
+                else -> TextField(
+                    value = content,
+                    onValueChange = { content = it },
+                    readOnly = readOnly,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp),
+                    placeholder = { Text("Escribe una nota") },
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    colors = fieldColors
+                )
+            }
         }
     }
 }

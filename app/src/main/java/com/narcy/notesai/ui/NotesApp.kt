@@ -46,6 +46,8 @@ import com.narcy.notesai.Section
 import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.Note
 import com.narcy.notesai.data.NoteType
+import com.narcy.notesai.data.checklistToPlainText
+import com.narcy.notesai.data.noteType
 import kotlinx.coroutines.launch
 
 private enum class Page { Home, Settings, Help }
@@ -342,7 +344,10 @@ private fun DrawerHome(
 private fun shareNotes(context: Context, notes: List<Note>) {
     if (notes.isEmpty()) return
     val text = notes.joinToString("\n\n") { note ->
-        listOf(note.title, note.content).filter { it.isNotBlank() }.joinToString("\n")
+        listOf(
+            note.title,
+            if (note.noteType == NoteType.Checklist) checklistToPlainText(note.content) else note.content
+        ).filter { it.isNotBlank() }.joinToString("\n")
     }
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"

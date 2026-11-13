@@ -28,6 +28,7 @@ private val tips = listOf(
     "Organiza con etiquetas desde el menú ☰ y asígnalas con el icono de etiqueta.",
     "Archiva las notas que no uses a diario; siguen disponibles en \"Archivar\".",
     "Toca \"Nueva nota\" para elegir el tipo de nota que quieres crear.",
+    "En una lista, pulsa Siguiente en el teclado para agregar otro elemento y marca los terminados con la casilla.",
     "Las notas de la papelera se eliminan definitivamente después de 7 días."
 )
 
