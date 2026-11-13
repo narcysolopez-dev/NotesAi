@@ -14,11 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FontDownload
 import androidx.compose.material.icons.filled.FormatColorReset
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Highlight
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -79,7 +82,7 @@ fun RichTextField(
     )
 }
 
-private enum class Panel { None, Highlight }
+private enum class Panel { None, Font, Highlight }
 
 /** Barra de formato del editor de texto. */
 @Composable
@@ -99,6 +102,20 @@ fun RichTextToolbar(state: RichTextState, modifier: Modifier = Modifier) {
                 onPick = { color -> state.applyFormat { it.copy(highlight = color ?: 0) } }
             )
 
+            Panel.Font -> LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                itemsIndexed(noteFonts) { index, font ->
+                    FilterChip(
+                        selected = state.current.font == index,
+                        onClick = { state.applyFormat { it.copy(font = index) } },
+                        label = { Text(font.label, fontFamily = font.family) }
+                    )
+                }
+            }
+
             Panel.None -> Unit
         }
         Row(
@@ -108,6 +125,12 @@ fun RichTextToolbar(state: RichTextState, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            FormatButton(
+                icon = Icons.Filled.FontDownload,
+                label = "Fuente",
+                active = panel == Panel.Font || state.current.font != 0,
+                onClick = { toggle(Panel.Font) }
+            )
             FormatButton(
                 icon = Icons.Filled.Highlight,
                 label = "Resaltar",
