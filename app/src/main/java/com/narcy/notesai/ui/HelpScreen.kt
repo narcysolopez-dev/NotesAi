@@ -36,6 +36,7 @@ private val tips = listOf(
     "Toca la U de la barra de formato para subrayar el texto seleccionado (o lo que escribas a continuación).",
     "Con el icono de fuente puedes cambiar el tipo de letra de las palabras seleccionadas.",
     "Cambia el color de las letras con el icono de color de texto de la barra de formato.",
+    "Toca tu foto, a la derecha de la barra de búsqueda, para iniciar sesión con Google, ver tu correo o cerrar sesión.",
     "Las notas de la papelera se eliminan definitivamente después de 7 días."
 )
 

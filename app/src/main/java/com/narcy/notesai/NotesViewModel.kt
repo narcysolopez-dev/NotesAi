@@ -1,14 +1,18 @@
 package com.narcy.notesai
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.narcy.notesai.data.AppDatabase
 import com.narcy.notesai.data.AppSettings
+import com.narcy.notesai.data.CloudAuth
+import com.narcy.notesai.data.CloudUser
 import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.MediaFiles
 import com.narcy.notesai.data.Note
 import com.narcy.notesai.data.SettingsStore
+import com.narcy.notesai.data.SignInResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,6 +32,39 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val settings: StateFlow<AppSettings> = settingsStore.state
+
+    private val auth = CloudAuth(app)
+
+    /** Cuenta de Google conectada, o null si no hay sesión. */
+    val user: StateFlow<CloudUser?> = auth.user
+
+    private val _authBusy = MutableStateFlow(false)
+    val authBusy: StateFlow<Boolean> = _authBusy
+
+    private val _authError = MutableStateFlow<String?>(null)
+    val authError: StateFlow<String?> = _authError
+
+    /** [activityContext] debe ser una Activity (la usa el selector de cuentas de Google). */
+    suspend fun signIn(activityContext: Context) {
+        if (_authBusy.value) return
+        _authBusy.value = true
+        _authError.value = null
+        try {
+            val result = auth.signIn(activityContext)
+            if (result is SignInResult.Error) _authError.value = result.message
+        } finally {
+            _authBusy.value = false
+        }
+    }
+
+    fun signOut() {
+        _authError.value = null
+        viewModelScope.launch { auth.signOut() }
+    }
+
+    fun clearAuthError() {
+        _authError.value = null
+    }
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query

@@ -119,6 +119,11 @@ private fun DrawerHome(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
+    val user by viewModel.user.collectAsState()
+    val authBusy by viewModel.authBusy.collectAsState()
+    val authError by viewModel.authError.collectAsState()
+    var showAccount by remember { mutableStateOf(false) }
+
     var showNewLabel by remember { mutableStateOf(false) }
     var labelToDelete by remember { mutableStateOf<Label?>(null) }
     var confirmEmptyTrash by remember { mutableStateOf(false) }
@@ -269,12 +274,31 @@ private fun DrawerHome(
             gridMode = gridMode,
             onQueryChange = viewModel::setQuery,
             onMenu = { scope.launch { drawerState.open() } },
+            user = user,
+            onAccount = {
+                viewModel.clearAuthError()
+                showAccount = true
+            },
             selectedIds = selectedIds,
             selection = selection,
             onNoteClick = { note -> if (selected.isNotEmpty()) toggle(note) else onOpen(note) },
             onNoteLongClick = { note -> toggle(note) },
             onNew = onNew,
             onEmptyTrash = { confirmEmptyTrash = true }
+        )
+    }
+
+    if (showAccount) {
+        AccountDialog(
+            user = user,
+            busy = authBusy,
+            error = authError,
+            onSignIn = { scope.launch { viewModel.signIn(context) } },
+            onSignOut = {
+                viewModel.signOut()
+                showAccount = false
+            },
+            onDismiss = { showAccount = false }
         )
     }
 
