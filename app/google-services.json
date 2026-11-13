@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "690264143223",
+    "project_id": "notesai-514601",
+    "storage_bucket": "notesai-514601.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:690264143223:android:e5bc1a83ca942aa9a7dd72",
+        "android_client_info": {
+          "package_name": "com.narcy.notesai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "690264143223-6qd8aaq5mdcnbcovetj7kn08olem2gp5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfFRXNzK_L3fZJiV3QSfNKXBjd9yo6Ma4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "690264143223-6qd8aaq5mdcnbcovetj7kn08olem2gp5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
