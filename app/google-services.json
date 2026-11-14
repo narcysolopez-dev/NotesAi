@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "690264143223-h7306dbopi967l2vo7mh8m36l35r79i4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.narcy.notesai",
+            "certificate_hash": "0ccd6fd1d4b0db4d1c674851d927591d5af95341"
+          }
+        },
+        {
           "client_id": "690264143223-6qd8aaq5mdcnbcovetj7kn08olem2gp5.apps.googleusercontent.com",
           "client_type": 3
         }
