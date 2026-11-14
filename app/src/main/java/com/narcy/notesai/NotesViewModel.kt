@@ -7,12 +7,14 @@ import androidx.lifecycle.viewModelScope
 import com.narcy.notesai.data.AppDatabase
 import com.narcy.notesai.data.AppSettings
 import com.narcy.notesai.data.CloudAuth
+import com.narcy.notesai.data.CloudSync
 import com.narcy.notesai.data.CloudUser
 import com.narcy.notesai.data.Label
 import com.narcy.notesai.data.MediaFiles
 import com.narcy.notesai.data.Note
 import com.narcy.notesai.data.SettingsStore
 import com.narcy.notesai.data.SignInResult
+import com.narcy.notesai.data.SyncStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,11 +23,23 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 class NotesViewModel(app: Application) : AndroidViewModel(app) {
     private val appContext: Application = app
     private val dao = AppDatabase.get(app).noteDao()
     private val settingsStore = SettingsStore(app)
+
+    /**
+     * Guarda la nota conservando su cloudId. La nota que tiene abierto el editor puede ser una copia
+     * vieja sin cloudId, así que se consulta el guardado; si es nueva, se le crea uno.
+     */
+    private suspend fun persist(note: Note) {
+        val cloudId = note.cloudId
+            ?: (if (note.id != 0L) dao.cloudIdOf(note.id) else null)
+            ?: UUID.randomUUID().toString()
+        dao.upsert(note.copy(cloudId = cloudId))
+    }
 
     private fun deleteMedia(names: List<String?>) {
         names.forEach { MediaFiles.delete(appContext, it) }
@@ -37,6 +51,10 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Cuenta de Google conectada, o null si no hay sesión. */
     val user: StateFlow<CloudUser?> = auth.user
+
+    /** Sincronización de las notas con Cloud Firestore mientras haya una cuenta conectada. */
+    private val sync = CloudSync(app, dao, auth.user, viewModelScope)
+    val syncStatus: StateFlow<SyncStatus> = sync.status
 
     private val _authBusy = MutableStateFlow(false)
     val authBusy: StateFlow<Boolean> = _authBusy
@@ -111,7 +129,7 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
             if (blank) {
                 if (note.id != 0L) dao.delete(note)
             } else {
-                dao.upsert(note.copy(updatedAt = System.currentTimeMillis()))
+                persist(note.copy(updatedAt = System.currentTimeMillis()))
             }
         }
     }
@@ -119,7 +137,7 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
     fun trash(note: Note) {
         if (note.id == 0L) return
         viewModelScope.launch {
-            dao.upsert(
+            persist(
                 note.copy(trashed = true, pinned = false, updatedAt = System.currentTimeMillis())
             )
         }
@@ -127,7 +145,7 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun restore(note: Note) {
         viewModelScope.launch {
-            dao.upsert(note.copy(trashed = false, updatedAt = System.currentTimeMillis()))
+            persist(note.copy(trashed = false, updatedAt = System.currentTimeMillis()))
         }
     }
 
@@ -143,7 +161,7 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
         if (selected.isEmpty()) return
         viewModelScope.launch {
             val now = System.currentTimeMillis()
-            selected.forEach { dao.upsert(transform(it).copy(updatedAt = now)) }
+            selected.forEach { persist(transform(it).copy(updatedAt = now)) }
         }
     }
 
@@ -153,9 +171,10 @@ class NotesViewModel(app: Application) : AndroidViewModel(app) {
             val now = System.currentTimeMillis()
             selected.forEach {
                 val mediaCopy = withContext(Dispatchers.IO) { MediaFiles.copy(appContext, it.mediaPath) }
-                dao.upsert(
+                persist(
                     it.copy(
                         id = 0,
+                        cloudId = null,
                         mediaPath = mediaCopy,
                         title = if (it.title.isBlank()) "" else "Copia de ${it.title}",
                         pinned = false,

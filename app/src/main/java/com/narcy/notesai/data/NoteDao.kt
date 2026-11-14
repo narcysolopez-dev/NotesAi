@@ -30,6 +30,19 @@ interface NoteDao {
     @Query("SELECT mediaPath FROM notes WHERE trashed = 1 AND updatedAt < :before AND mediaPath IS NOT NULL")
     suspend fun trashedMediaBefore(before: Long): List<String>
 
+    @Query("SELECT * FROM notes WHERE cloudId = :cloudId LIMIT 1")
+    suspend fun byCloudId(cloudId: String): Note?
+
+    @Query("SELECT cloudId FROM notes WHERE id = :id")
+    suspend fun cloudIdOf(id: Long): String?
+
+    @Query("SELECT * FROM labels WHERE id = :id")
+    suspend fun labelById(id: Long): Label?
+
+    /** Coincidencia exacta (distingue mayúsculas) para que la sincronización de etiquetas sea estable. */
+    @Query("SELECT * FROM labels WHERE name = :name LIMIT 1")
+    suspend fun labelByName(name: String): Label?
+
     @Query("SELECT * FROM labels ORDER BY name COLLATE NOCASE")
     fun observeLabels(): Flow<List<Label>>
 

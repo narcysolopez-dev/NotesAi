@@ -14,8 +14,8 @@ android {
         applicationId = "com.narcy.notesai"
         minSdk = 26
         targetSdk = 34
-        versionCode = 14
-        versionName = "1.13"
+        versionCode = 15
+        versionName = "1.14"
     }
 
     // Llave de depuración fija (contraseña pública "android"): así todos los APK que compila
