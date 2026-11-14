@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.narcy.notesai.data.CloudUser
+import com.narcy.notesai.data.SyncStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URL
@@ -105,6 +106,7 @@ fun AccountDialog(
     user: CloudUser?,
     busy: Boolean,
     error: String?,
+    syncStatus: SyncStatus,
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
     onDismiss: () -> Unit
@@ -133,6 +135,19 @@ fun AccountDialog(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
+                    )
+                    val (statusText, isError) = when (syncStatus) {
+                        SyncStatus.SignedOut, SyncStatus.Connecting -> "Conectando con la nube…" to false
+                        SyncStatus.Synced -> "Notas sincronizadas" to false
+                        SyncStatus.Pending -> "Sin conexión o con cambios pendientes: se sincronizarán solos" to false
+                        is SyncStatus.Error -> syncStatus.message to true
+                    }
+                    Text(
+                        statusText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
                 } else {
                     Text(

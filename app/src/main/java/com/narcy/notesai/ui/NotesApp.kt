@@ -122,6 +122,7 @@ private fun DrawerHome(
     val user by viewModel.user.collectAsState()
     val authBusy by viewModel.authBusy.collectAsState()
     val authError by viewModel.authError.collectAsState()
+    val syncStatus by viewModel.syncStatus.collectAsState()
     var showAccount by remember { mutableStateOf(false) }
 
     var showNewLabel by remember { mutableStateOf(false) }
@@ -293,6 +294,7 @@ private fun DrawerHome(
             user = user,
             busy = authBusy,
             error = authError,
+            syncStatus = syncStatus,
             onSignIn = { scope.launch { viewModel.signIn(context) } },
             onSignOut = {
                 viewModel.signOut()

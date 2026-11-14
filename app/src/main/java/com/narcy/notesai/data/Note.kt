@@ -19,5 +19,7 @@ data class Note(
     /** Nombre del archivo (en filesDir/media) de la imagen, dibujo o audio de la nota. */
     val mediaPath: String? = null,
     /** Formato del texto (resaltado, subrayado, fuente, color) en JSON. Ver RichText.kt. */
-    val spans: String? = null
+    val spans: String? = null,
+    /** Id estable de la nota en la nube (users/{uid}/notes/{cloudId}); igual en todos los dispositivos. */
+    val cloudId: String? = null
 )
