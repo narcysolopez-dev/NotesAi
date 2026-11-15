@@ -26,7 +26,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Highlight
+import androidx.compose.material.icons.filled.InkEraser
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -34,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -51,6 +56,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
@@ -59,18 +65,54 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import java.io.File
 import java.io.FileOutputStream
 
-class InkStroke(val color: Color, val width: Float) {
+/** Tipos de punta. [widthFactor] multiplica el grosor del control deslizante. */
+enum class PenTip(
+    val label: String,
+    val icon: ImageVector,
+    val widthFactor: Float,
+    val alpha: Float,
+    val square: Boolean = false
+) {
+    Pencil("Lápiz", Icons.Filled.Edit, 0.8f, 0.75f),
+    Pen("Bolígrafo", Icons.Filled.Create, 1f, 1f),
+    Highlighter("Resaltador", Icons.Filled.Highlight, 3f, 0.4f, square = true),
+    Eraser("Borrador", Icons.Filled.InkEraser, 2.5f, 1f)
+}
+
+class InkStroke(val color: Color, val width: Float, val tip: PenTip) {
     val points = mutableStateListOf<Offset>()
 }
 
 /** Estado del lienzo. Vive en el editor para poder guardar el dibujo al cerrar. */
 @Stable
-class DrawingState {
+class DrawingState(initialPaper: Color = Color.White) {
+    /** Color de la hoja según el tema (claro u oscuro) de la app. */
+    var themePaper by mutableStateOf(initialPaper)
+
+    private var paperFor: ImageBitmap? = null
+    private var paperOf: Color? = null
+
+    /**
+     * Color de la hoja. Un dibujo guardado conserva el fondo con el que se guardó
+     * (se lee de su esquina); uno nuevo usa el del tema.
+     */
+    val paper: Color
+        get() {
+            val b = base
+            if (b == null || !baseVisible) return themePaper
+            if (paperFor !== b) {
+                paperFor = b
+                paperOf = runCatching { Color(b.asAndroidBitmap().getPixel(0, 0)).copy(alpha = 1f) }.getOrNull()
+            }
+            return paperOf ?: themePaper
+        }
+
     /** Dibujo guardado anteriormente (si la nota ya existía). */
     var base by mutableStateOf<ImageBitmap?>(null)
     var baseVisible by mutableStateOf(true)
@@ -100,16 +142,18 @@ class DrawingState {
         return runCatching {
             val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             val canvas = AndroidCanvas(bitmap)
-            canvas.drawColor(android.graphics.Color.WHITE)
+            val paperColor = paper.toArgb()
+            canvas.drawColor(paperColor)
             val baseBitmap = base
             if (baseBitmap != null && baseVisible) {
                 canvas.drawBitmap(baseBitmap.asAndroidBitmap(), null, Rect(0, 0, w, h), null)
             }
             strokes.forEach { stroke ->
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = stroke.color.toArgb()
+                    color = (if (stroke.tip == PenTip.Eraser) paper else stroke.color).toArgb()
+                    alpha = (stroke.tip.alpha * 255).toInt()
                     strokeWidth = stroke.width
-                    strokeCap = Paint.Cap.ROUND
+                    strokeCap = if (stroke.tip.square) Paint.Cap.SQUARE else Paint.Cap.ROUND
                     strokeJoin = Paint.Join.ROUND
                     style = Paint.Style.STROKE
                 }
@@ -136,7 +180,7 @@ class DrawingState {
 
 private class InkColor(val name: String, val color: Color)
 
-/** Paleta de tonos vivos y saturados, más negro y blanco (el blanco funciona como borrador sobre la hoja blanca). */
+/** Paleta de tonos vivos y saturados, más negro y blanco. */
 private val inkColors = listOf(
     InkColor("Negro", Color(0xFF000000)),
     InkColor("Blanco", Color(0xFFFFFFFF)),
@@ -158,6 +202,11 @@ private const val DEFAULT_PEN_DP = 4f
  * [textColor] es el color de texto de la nota (el mismo que usan los demás iconos del editor):
  * siempre contrasta con el fondo de la nota, tanto en modo claro como oscuro.
  */
+/** Color de la hoja de dibujo: oscuro en modo oscuro, blanco en modo claro. */
+@Composable
+fun themePaperColor(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF121212) else Color.White
+
 @Composable
 fun DrawingEditor(
     state: DrawingState,
@@ -165,9 +214,16 @@ fun DrawingEditor(
     textColor: Color,
     modifier: Modifier = Modifier
 ) {
-    var ink by remember { mutableStateOf(inkColors[0].color) }
+    val themePaper = themePaperColor()
+    SideEffect { state.themePaper = themePaper }
+    val paper = state.paper
+
+    var chosenInk by remember { mutableStateOf<Color?>(null) }
+    // Sin color elegido, la tinta contrasta con la hoja (negra sobre clara, blanca sobre oscura).
+    val ink = chosenInk ?: if (paper.luminance() > 0.5f) inkColors[0].color else inkColors[1].color
+    var tip by remember { mutableStateOf(PenTip.Pen) }
     var penDp by remember { mutableFloatStateOf(DEFAULT_PEN_DP) }
-    val strokeWidth = with(LocalDensity.current) { penDp.dp.toPx() }
+    val strokeWidth = with(LocalDensity.current) { penDp.dp.toPx() } * tip.widthFactor
     val outline = MaterialTheme.colorScheme.outline
 
     Box(modifier.padding(horizontal = 12.dp)) {
@@ -175,7 +231,7 @@ fun DrawingEditor(
             Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color.White)
+                .background(paper)
                 .border(BorderStroke(1.dp, outline), RoundedCornerShape(16.dp))
                 .onSizeChanged { state.size = it }
         ) {
@@ -187,18 +243,18 @@ fun DrawingEditor(
                             Modifier
                         } else {
                             Modifier
-                                .pointerInput(ink, strokeWidth) {
+                                .pointerInput(ink, strokeWidth, tip) {
                                     detectTapGestures { offset ->
-                                        val stroke = InkStroke(ink, strokeWidth)
+                                        val stroke = InkStroke(ink, strokeWidth, tip)
                                         stroke.points.add(offset)
                                         state.strokes.add(stroke)
                                     }
                                 }
-                                .pointerInput(ink, strokeWidth) {
+                                .pointerInput(ink, strokeWidth, tip) {
                                     var current: InkStroke? = null
                                     detectDragGestures(
                                         onDragStart = { offset ->
-                                            current = InkStroke(ink, strokeWidth).also {
+                                            current = InkStroke(ink, strokeWidth, tip).also {
                                                 it.points.add(offset)
                                                 state.strokes.add(it)
                                             }
@@ -223,8 +279,10 @@ fun DrawingEditor(
                 }
                 state.strokes.forEach { stroke ->
                     val pts = stroke.points
+                    val strokeColor = (if (stroke.tip == PenTip.Eraser) paper else stroke.color)
+                        .copy(alpha = stroke.tip.alpha)
                     if (pts.size == 1) {
-                        drawCircle(stroke.color, radius = stroke.width / 2f, center = pts[0])
+                        drawCircle(strokeColor, radius = stroke.width / 2f, center = pts[0])
                     } else if (pts.size > 1) {
                         val path = Path()
                         path.moveTo(pts[0].x, pts[0].y)
@@ -235,16 +293,25 @@ fun DrawingEditor(
                         path.lineTo(pts.last().x, pts.last().y)
                         drawPath(
                             path,
-                            color = stroke.color,
+                            color = strokeColor,
                             style = Stroke(
                                 width = stroke.width,
-                                cap = StrokeCap.Round,
+                                cap = if (stroke.tip.square) StrokeCap.Square else StrokeCap.Round,
                                 join = StrokeJoin.Round
                             )
                         )
                     }
                 }
             }
+        }
+        if (!readOnly) {
+            TipSelector(
+                selected = tip,
+                onSelect = { tip = it },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            )
         }
     }
 
@@ -263,7 +330,7 @@ fun DrawingEditor(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                BrushPreview(color = ink, widthDp = penDp, textColor = textColor)
+                BrushPreview(color = ink, widthDp = penDp * tip.widthFactor, tip = tip, paper = paper, textColor = textColor)
                 Slider(
                     value = penDp,
                     onValueChange = { penDp = it },
@@ -300,9 +367,12 @@ fun DrawingEditor(
                 inkColors.forEach { item ->
                     ColorSwatch(
                         item = item,
-                        selected = item.color == ink,
+                        selected = tip != PenTip.Eraser && item.color == ink,
                         textColor = textColor,
-                        onClick = { ink = item.color }
+                        onClick = {
+                            chosenInk = item.color
+                            if (tip == PenTip.Eraser) tip = PenTip.Pen
+                        }
                     )
                 }
             }
@@ -310,24 +380,62 @@ fun DrawingEditor(
     }
 }
 
-/** Muestra el punto del pincel con el color y el grosor elegidos, antes de dibujar. */
+/** Selector compacto de puntas: flota sobre el lienzo para no quitarle espacio. */
 @Composable
-private fun BrushPreview(color: Color, widthDp: Float, textColor: Color) {
+private fun TipSelector(selected: PenTip, onSelect: (PenTip) -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(22.dp)
+    val content = MaterialTheme.colorScheme.onSurface
+    Row(
+        modifier
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
+            .border(BorderStroke(1.dp, content.copy(alpha = 0.25f)), shape)
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        PenTip.entries.forEach { item ->
+            val isSelected = item == selected
+            Box(
+                Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(if (isSelected) content.copy(alpha = 0.18f) else Color.Transparent)
+                    .semantics {
+                        contentDescription = item.label
+                        this.selected = isSelected
+                    }
+                    .clickable { onSelect(item) },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(item.icon, contentDescription = null, tint = content, modifier = Modifier.size(22.dp))
+            }
+        }
+    }
+}
+
+/** Muestra el punto del pincel con la punta, el color y el grosor elegidos, antes de dibujar. */
+@Composable
+private fun BrushPreview(color: Color, widthDp: Float, tip: PenTip, paper: Color, textColor: Color) {
     val shape = RoundedCornerShape(12.dp)
     Box(
         Modifier
             .size(52.dp)
             .clip(shape)
-            .background(Color.White)
+            .background(paper)
             .border(BorderStroke(1.dp, textColor.copy(alpha = 0.35f)), shape)
             .semantics { contentDescription = "Vista previa del pincel" },
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            val radius = widthDp.dp.toPx() / 2f
-            drawCircle(color, radius = radius)
-            // Contorno fino para que también se vea el punto blanco.
-            drawCircle(Color.Gray.copy(alpha = 0.55f), radius = radius, style = Stroke(width = 1.dp.toPx()))
+            val half = minOf(widthDp.dp.toPx() / 2f, size.minDimension / 2f - 2.dp.toPx())
+            val fill = (if (tip == PenTip.Eraser) paper else color).copy(alpha = tip.alpha)
+            if (tip.square) {
+                drawRect(fill, topLeft = Offset(center.x - half, center.y - half), size = androidx.compose.ui.geometry.Size(half * 2, half * 2))
+            } else {
+                drawCircle(fill, radius = half)
+            }
+            // Contorno fino para que también se vea el punto del color de la hoja.
+            drawCircle(Color.Gray.copy(alpha = 0.55f), radius = half, style = Stroke(width = 1.dp.toPx()))
         }
     }
 }
