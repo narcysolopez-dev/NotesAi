@@ -351,6 +351,7 @@ fun EditorScreen(
                 NoteType.Drawing -> DrawingEditor(
                     state = drawing,
                     readOnly = readOnly,
+                    textColor = textColor,
                     modifier = Modifier.weight(1f)
                 )
 
