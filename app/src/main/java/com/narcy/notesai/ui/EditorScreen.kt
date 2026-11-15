@@ -130,7 +130,8 @@ fun EditorScreen(
 
     val context = LocalContext.current
 
-    val drawing = remember { DrawingState() }
+    val themePaper = themePaperColor()
+    val drawing = remember { DrawingState(themePaper) }
     if (type == NoteType.Drawing) {
         val base by rememberNoteBitmap(initial.mediaPath, 2048)
         SideEffect { if (drawing.base == null) drawing.base = base }
@@ -324,10 +325,13 @@ fun EditorScreen(
                         .imePadding()
                 ) {
                     if (type == NoteType.Text) RichTextToolbar(rich)
-                    ColorPicker(
-                        selected = colorIndex,
-                        onSelect = { colorIndex = it }
-                    )
+                    // En un dibujo se oculta para que el lienzo use todo el alto disponible.
+                    if (type != NoteType.Drawing) {
+                        ColorPicker(
+                            selected = colorIndex,
+                            onSelect = { colorIndex = it }
+                        )
+                    }
                 }
             }
         }
