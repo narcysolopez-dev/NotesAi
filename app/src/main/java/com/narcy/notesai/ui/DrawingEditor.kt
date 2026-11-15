@@ -30,7 +30,7 @@ import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Highlight
-import androidx.compose.material.icons.filled.InkEraser
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -82,7 +82,7 @@ enum class PenTip(
     Pencil("Lápiz", Icons.Filled.Edit, 0.8f, 0.75f),
     Pen("Bolígrafo", Icons.Filled.Create, 1f, 1f),
     Highlighter("Resaltador", Icons.Filled.Highlight, 3f, 0.4f, square = true),
-    Eraser("Borrador", Icons.Filled.InkEraser, 2.5f, 1f)
+    Eraser("Borrador", Icons.AutoMirrored.Filled.Backspace, 2.5f, 1f)
 }
 
 class InkStroke(val color: Color, val width: Float, val tip: PenTip) {
